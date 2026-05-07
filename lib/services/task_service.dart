@@ -63,24 +63,23 @@ class TaskService {
     }
   }
 
-  /// 📥 Stream of ALL tasks ordered by deadline (real-time updates)
-  /// Returns a Stream of List<TaskModel> automatically synced with Firestore
+  /// 📥 Stream of ALL tasks for the current user (real-time updates)
   Stream<List<TaskModel>> getTasksStream({String? subjectId}) {
     if (_userId == null) return Stream.value([]);
 
-    Query query = _firestore.collection(_collection).where('userId', isEqualTo: _userId);
-
-    if (subjectId != null) {
-      query = query.where('subjectId', isEqualTo: subjectId);
-    }
-
-    return query
-        .orderBy('deadline', descending: false)
+    return _firestore
+        .collection(_collection)
+        .where('userId', isEqualTo: _userId)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return TaskModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-      }).toList();
+      var tasks = snapshot.docs
+          .map((doc) => TaskModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .toList();
+      if (subjectId != null) {
+        tasks = tasks.where((t) => t.subjectId == subjectId).toList();
+      }
+      tasks.sort((a, b) => a.deadline.compareTo(b.deadline));
+      return tasks;
     });
   }
 
@@ -88,32 +87,27 @@ class TaskService {
   Stream<List<TaskModel>> getDueTodayTasks({String? subjectId}) {
     if (_userId == null) return Stream.value([]);
 
-    final now = DateTime.now();
-    final startOfDay = Timestamp.fromDate(
-      DateTime(now.year, now.month, now.day),
-    );
-    final endOfDay = Timestamp.fromDate(
-      DateTime(now.year, now.month, now.day, 23, 59, 59),
-    );
-
-    Query query = _firestore
+    return _firestore
         .collection(_collection)
         .where('userId', isEqualTo: _userId)
-        .where('isCompleted', isEqualTo: false)
-        .where('deadline', isGreaterThanOrEqualTo: startOfDay)
-        .where('deadline', isLessThanOrEqualTo: endOfDay);
-
-    if (subjectId != null) {
-      query = query.where('subjectId', isEqualTo: subjectId);
-    }
-
-    return query
-        .orderBy('deadline', descending: false)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return TaskModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-      }).toList();
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+      var tasks = snapshot.docs
+          .map((doc) => TaskModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .where((t) =>
+              !t.isCompleted &&
+              !t.deadline.toDate().isBefore(startOfDay) &&
+              !t.deadline.toDate().isAfter(endOfDay))
+          .toList();
+      if (subjectId != null) {
+        tasks = tasks.where((t) => t.subjectId == subjectId).toList();
+      }
+      tasks.sort((a, b) => a.deadline.compareTo(b.deadline));
+      return tasks;
     });
   }
 
@@ -121,39 +115,39 @@ class TaskService {
   Stream<int> getPendingTasksCount({String? subjectId}) {
     if (_userId == null) return Stream.value(0);
 
-    Query query = _firestore
+    return _firestore
         .collection(_collection)
         .where('userId', isEqualTo: _userId)
-        .where('isCompleted', isEqualTo: false);
-
-    if (subjectId != null) {
-      query = query.where('subjectId', isEqualTo: subjectId);
-    }
-
-    return query.snapshots().map((snapshot) => snapshot.docs.length);
+        .snapshots()
+        .map((snapshot) {
+      var tasks = snapshot.docs
+          .map((doc) => TaskModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .where((t) => !t.isCompleted);
+      if (subjectId != null) {
+        tasks = tasks.where((t) => t.subjectId == subjectId);
+      }
+      return tasks.length;
+    });
   }
 
   /// 📋 Stream of PENDING tasks sorted by deadline (for home preview)
   Stream<List<TaskModel>> getPendingTasks({int limitCount = 3, String? subjectId}) {
     if (_userId == null) return Stream.value([]);
 
-    Query query = _firestore
+    return _firestore
         .collection(_collection)
         .where('userId', isEqualTo: _userId)
-        .where('isCompleted', isEqualTo: false);
-
-    if (subjectId != null) {
-      query = query.where('subjectId', isEqualTo: subjectId);
-    }
-
-    return query
-        .orderBy('deadline', descending: false)
-        .limit(limitCount)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return TaskModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-      }).toList();
+      var tasks = snapshot.docs
+          .map((doc) => TaskModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .where((t) => !t.isCompleted)
+          .toList();
+      if (subjectId != null) {
+        tasks = tasks.where((t) => t.subjectId == subjectId).toList();
+      }
+      tasks.sort((a, b) => a.deadline.compareTo(b.deadline));
+      return tasks.take(limitCount).toList();
     });
   }
 }
