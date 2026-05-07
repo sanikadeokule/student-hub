@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/video_model.dart';
 
 /// Full-screen playback for a saved VideoModel (YouTube or local).
@@ -20,17 +20,22 @@ class _VideoPlaybackScreenState extends State<VideoPlaybackScreen> {
     super.initState();
     if (widget.video.isYouTube) {
       final videoId =
-          YoutubePlayer.convertUrlToId(widget.video.url) ?? widget.video.url;
-      _ytController = YoutubePlayerController(
-        initialVideoId: videoId,
-        flags: const YoutubePlayerFlags(autoPlay: true),
+          YoutubePlayerController.convertUrlToId(widget.video.url) ??
+              widget.video.url;
+      _ytController = YoutubePlayerController.fromVideoId(
+        videoId: videoId,
+        autoPlay: true,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+        ),
       );
     }
   }
 
   @override
   void dispose() {
-    _ytController?.dispose();
+    _ytController?.close();
     super.dispose();
   }
 
@@ -45,11 +50,7 @@ class _VideoPlaybackScreenState extends State<VideoPlaybackScreen> {
       backgroundColor: Colors.black,
       body: Center(
         child: widget.video.isYouTube && _ytController != null
-            ? YoutubePlayer(
-                controller: _ytController!,
-                showVideoProgressIndicator: true,
-                progressIndicatorColor: Colors.red,
-              )
+            ? YoutubePlayer(controller: _ytController!)
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -65,7 +66,8 @@ class _VideoPlaybackScreenState extends State<VideoPlaybackScreen> {
                   Text(
                     widget.video.url,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 12),
                   ),
                 ],
               ),

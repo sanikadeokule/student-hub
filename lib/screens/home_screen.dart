@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 import 'package:student_companion/screens/multimedia_screen.dart';
 import 'package:student_companion/screens/image_transform_screen.dart';
@@ -10,7 +12,10 @@ import 'package:student_companion/screens/chatbot_screen.dart';
 import 'package:student_companion/screens/task_list_screen.dart';
 import 'package:student_companion/screens/analytics_screen.dart';
 import 'package:student_companion/screens/subject_list_screen.dart';
+import 'alarm_audio_stub.dart' if (dart.library.js_interop) 'alarm_audio_web.dart';
 
+import '../models/alarm_model.dart';
+import '../services/alarm_service.dart';
 import '../widgets/animated_background.dart';
 import '../widgets/glass_card.dart';
 import '../services/auth_service.dart';
@@ -32,6 +37,77 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int index = 0;
+
+  // ── Alarm watcher ──────────────────────────────────────────────
+  final AlarmService _alarmService = AlarmService();
+  List<AlarmModel> _alarms = [];
+  StreamSubscription<List<AlarmModel>>? _alarmSub;
+  Timer? _alarmTimer;
+  final Set<String> _ringing = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _alarmSub = _alarmService.getAlarms().listen((list) => _alarms = list);
+    _alarmTimer = Timer.periodic(
+        const Duration(seconds: 1), (_) => _checkAlarms());
+    requestNotificationPermission();
+  }
+
+  @override
+  void dispose() {
+    _alarmSub?.cancel();
+    _alarmTimer?.cancel();
+    stopAlarmSound();
+    super.dispose();
+  }
+
+  void _checkAlarms() {
+    if (!mounted) return;
+    final now = DateTime.now();
+    for (final alarm in _alarms) {
+      if (alarm.isActive &&
+          !alarm.hasFired &&
+          now.isAfter(alarm.dateTime) &&
+          !_ringing.contains(alarm.id)) {
+        _ringing.add(alarm.id);
+        _alarmService.updateAlarm(alarm.id, isActive: false, hasFired: true);
+        _fireAlarm(alarm);
+        break;
+      }
+    }
+  }
+
+  void _fireAlarm(AlarmModel alarm) {
+    playAlarmSound();
+    showBrowserNotification(
+        alarm.name, DateFormat('hh:mm a').format(alarm.dateTime));
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlarmRingScreen(
+        alarm: alarm,
+        onDismiss: () {
+          stopAlarmSound();
+          _ringing.remove(alarm.id);
+          Navigator.of(ctx).pop();
+        },
+        onSnooze: () {
+          stopAlarmSound();
+          _ringing.remove(alarm.id);
+          _alarmService.updateAlarm(
+            alarm.id,
+            dateTime: DateTime.now().add(const Duration(minutes: 5)),
+            isActive: true,
+            hasFired: false,
+          );
+          Navigator.of(ctx).pop();
+        },
+      ),
+    );
+  }
+  // ──────────────────────────────────────────────────────────────
 
   Future<void> _logout(BuildContext context) async {
     final authService = AuthService();

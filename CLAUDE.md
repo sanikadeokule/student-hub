@@ -51,6 +51,7 @@ Every feature follows the same structure:
 | `subjects` | `SubjectModel` | name, description, color (hex string), createdAt, userId |
 | `study_sessions` | `StudySessionModel` | durationSeconds, createdAt, subjectId, userId |
 | `videos` | `VideoModel` | title, url, type ('youtube'/'local'), createdAt, subjectId |
+| `alarms` | `AlarmModel` | name, dateTime (Timestamp), isActive, hasFired, userId |
 
 **Important:** `orderBy` is intentionally omitted from most Firestore queries in `task_service.dart`, `note_service.dart`, and `subject_service.dart` to avoid composite index requirements. All sorting is done client-side in Dart.
 

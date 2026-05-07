@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'video_pick_helper_stub.dart'
+    if (dart.library.html) 'video_pick_helper_web.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'dart:typed_data';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../services/video_service.dart';
 import '../services/subject_service.dart';
 import '../models/subject_model.dart';
@@ -337,12 +338,12 @@ class VideoPlayerTab extends StatefulWidget {
 class _VideoPlayerTabState extends State<VideoPlayerTab> {
   VideoPlayerController? _controller;
   bool _isLoaded = false;
+  final _videoPick = VideoPickHelper();
 
   // YouTube
   final TextEditingController _youtubeUrlController = TextEditingController();
   final TextEditingController _videoTitleController = TextEditingController();
   YoutubePlayerController? _youtubeController;
-  bool _isYoutubeLoaded = false;
 
   final VideoService _videoService = VideoService();
   final SubjectService _subjectService = SubjectService();
@@ -351,27 +352,26 @@ class _VideoPlayerTabState extends State<VideoPlayerTab> {
   @override
   void dispose() {
     _controller?.dispose();
-    _youtubeController?.dispose();
+    _youtubeController?.close();
     _youtubeUrlController.dispose();
     _videoTitleController.dispose();
+    _videoPick.release();
     super.dispose();
   }
 
   Future<void> _pickVideo() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.video);
+    if (result == null) return;
 
-    if (result != null) {
-      Uint8List? bytes = result.files.first.bytes;
+    _controller?.dispose();
+    setState(() => _isLoaded = false);
 
-      _controller?.dispose();
-      setState(() => _isLoaded = false);
-
-      _controller = VideoPlayerController.networkUrl(
-        Uri.dataFromBytes(bytes!, mimeType: 'video/mp4'),
-      )..initialize().then((_) {
-          setState(() => _isLoaded = true);
-        });
-    }
+    _controller = _videoPick.controllerFromPick(
+      path: result.files.first.path,
+      bytes: result.files.first.bytes,
+    )..initialize().then((_) {
+        setState(() => _isLoaded = true);
+      });
   }
 
   Future<void> _loadNetworkVideo() async {
@@ -388,21 +388,22 @@ class _VideoPlayerTabState extends State<VideoPlayerTab> {
 
   void _playYoutubeVideo() {
     final url = _youtubeUrlController.text.trim();
-    final videoId = YoutubePlayer.convertUrlToId(url);
+    final videoId = YoutubePlayerController.convertUrlToId(url);
 
     if (videoId != null) {
-      _youtubeController?.dispose();
-      setState(() => _isYoutubeLoaded = false);
+      _youtubeController?.close();
 
-      _youtubeController = YoutubePlayerController(
-        initialVideoId: videoId,
-        flags: const YoutubePlayerFlags(
-          autoPlay: true,
-          showLiveFullscreenButton: false,
+      _youtubeController = YoutubePlayerController.fromVideoId(
+        videoId: videoId,
+        autoPlay: true,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          mute: false,
         ),
       );
 
-      setState(() => _isYoutubeLoaded = true);
+      setState(() {});
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid YouTube URL')),
@@ -421,7 +422,7 @@ class _VideoPlayerTabState extends State<VideoPlayerTab> {
       return;
     }
 
-    final videoId = YoutubePlayer.convertUrlToId(url);
+    final videoId = YoutubePlayerController.convertUrlToId(url);
     if (videoId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid YouTube URL')),
@@ -578,17 +579,16 @@ class _VideoPlayerTabState extends State<VideoPlayerTab> {
           const SizedBox(height: 20),
 
           // YouTube Player
-          if (_isYoutubeLoaded && _youtubeController != null)
+          if (_youtubeController != null)
             Card(
               elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
                 child: YoutubePlayer(
                   controller: _youtubeController!,
-                  showVideoProgressIndicator: true,
                 ),
               ),
             ),

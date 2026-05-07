@@ -36,8 +36,8 @@ dependencies:
   cloud_firestore: ^6.3.0
   fl_chart: ^0.68.0
 
-  # 🎥 YouTube player
-  youtube_player_flutter: ^8.1.2
+  # 🎥 YouTube player (web-compatible)
+  youtube_player_iframe: ^5.0.0
 
   # 💾 Shared preferences for theme persistence
   shared_preferences: ^2.2.3
