@@ -51,13 +51,14 @@ Students today face a fragmented academic life — deadlines are tracked on stic
 - All queries scoped per authenticated user
 
 ### Study Timer
-- Three modes in a tabbed layout: **Pomodoro**, **Stopwatch**, **Countdown**
+- Two modes in a tabbed layout: **Pomodoro**, **Alarm**, 
 - Logs session duration to `study_sessions` collection on completion
 - Optional subject link for per-subject analytics breakdown
+- Alarm : Firestore persistence, watcher moved to HomeScreen (fires on any page), Web Audio beep, browser OS notifications, snooze/dismiss fixes
 
 ### Multimedia
 - **Local tab**: pick audio/video files via file_picker; audio via just_audio, video via video_player
-- **YouTube tab**: embed and play any YouTube URL via youtube_player_flutter
+- **YouTube tab**: play any youtube video. youtube_player_iframe for proper web YouTube, Blob URL for local video, cross-platform VideoPickHelper
 - Video metadata (title, URL, type, subject) saved to Firestore for later retrieval
 
 ### AI Study Chatbot
@@ -70,6 +71,7 @@ Students today face a fragmented academic life — deadlines are tracked on stic
 
 ### Image Editor
 - Brightness, contrast, rotation, scaling, flip (horizontal/vertical), grayscale
+-  sample image, background isolate for Save
 - Web-only download of processed images via `dart:html`
 
 ---
