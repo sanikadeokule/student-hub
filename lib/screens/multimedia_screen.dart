@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_theme.dart';
 import 'video_pick_helper_stub.dart'
     if (dart.library.html) 'video_pick_helper_web.dart';
 import 'package:just_audio/just_audio.dart';
@@ -143,8 +144,14 @@ class _AudioPlayerTabState extends State<AudioPlayerTab> {
   Widget build(BuildContext context) {
     final track = _playlist[_currentIndex];
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? kDarkBg : kLightBg;
+    final cardBg  = isDark ? kDarkCard : Colors.white;
+    final textPrimary = isDark ? Colors.white.withOpacity(0.92) : const Color(0xFF2A2A3D);
+    final textSub     = isDark ? Colors.white54 : Colors.grey[600]!;
+
     return Container(
-      color: const Color(0xFF0D0D0D),
+      color: bgColor,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +162,7 @@ class _AudioPlayerTabState extends State<AudioPlayerTab> {
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.deepPurple, Colors.black],
+                  colors: [kPrimary, kMint],
                 ),
               ),
               child: Row(
@@ -175,7 +182,7 @@ class _AudioPlayerTabState extends State<AudioPlayerTab> {
                   ),
                   CircleAvatar(
                     backgroundColor: Colors.white,
-                    child: Icon(Icons.person, color: Colors.black),
+                    child: Icon(Icons.person, color: kPrimary),
                   )
                 ],
               ),
@@ -184,10 +191,10 @@ class _AudioPlayerTabState extends State<AudioPlayerTab> {
             const SizedBox(height: 10),
 
             /// TRENDING
-            const Padding(
-              padding: EdgeInsets.all(16),
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Text("Trending Now",
-                  style: TextStyle(color: Colors.white, fontSize: 18)),
+                  style: TextStyle(color: textPrimary, fontSize: 18, fontWeight: FontWeight.w700)),
             ),
 
             SizedBox(
@@ -196,6 +203,8 @@ class _AudioPlayerTabState extends State<AudioPlayerTab> {
                 scrollDirection: Axis.horizontal,
                 itemCount: _playlist.length,
                 itemBuilder: (context, index) {
+                  final trendAccents = [kPrimary, kMint, kAmber];
+                  final accent = trendAccents[index % trendAccents.length];
                   return GestureDetector(
                     onTap: () => _loadAndPlay(index),
                     child: Container(
@@ -203,27 +212,32 @@ class _AudioPlayerTabState extends State<AudioPlayerTab> {
                       margin: const EdgeInsets.only(left: 16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(15),
-                        color: Colors.grey[900],
+                        color: cardBg,
+                        border: Border.all(color: accent.withOpacity(0.3)),
+                        boxShadow: [BoxShadow(color: accent.withOpacity(0.12), blurRadius: 8, offset: const Offset(0, 3))],
                       ),
                       child: Column(
                         children: [
                           Container(
                             height: 100,
-                            decoration: const BoxDecoration(
-                              color: Colors.grey,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [accent.withOpacity(0.7), accent.withOpacity(0.4)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
                             ),
-                            child: const Icon(Icons.music_note,
-                                size: 40, color: Colors.white),
+                            child: Center(child: Icon(Icons.music_note, size: 40, color: Colors.white)),
                           ),
                           Padding(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
                             child: Text(_playlist[index]['title']!,
-                                style:
-                                    const TextStyle(color: Colors.white)),
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
                           ),
                           Text(_playlist[index]['artist']!,
-                              style:
-                                  const TextStyle(color: Colors.grey)),
+                              style: TextStyle(color: textSub, fontSize: 11)),
                         ],
                       ),
                     ),
@@ -237,86 +251,115 @@ class _AudioPlayerTabState extends State<AudioPlayerTab> {
             /// NOW PLAYING
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Container(
-                    height: 180,
-                    width: 180,
-                    decoration: BoxDecoration(
-                      color: Colors.indigo.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(Icons.music_note, size: 80),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Text(track['title']!,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold)),
-
-                  Text(track['artist']!,
-                      style: const TextStyle(color: Colors.grey)),
-
-                  const SizedBox(height: 20),
-
-                  Slider(
-                    value: _position.inSeconds.toDouble(),
-                    max: _duration.inSeconds.toDouble() == 0
-                        ? 1
-                        : _duration.inSeconds.toDouble(),
-                    onChanged: (v) =>
-                        _player.seek(Duration(seconds: v.toInt())),
-                  ),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_format(_position),
-                          style: const TextStyle(color: Colors.white)),
-                      Text(_format(_duration),
-                          style: const TextStyle(color: Colors.white)),
-                    ],
-                  ),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.skip_previous,
-                            color: Colors.white),
-                        onPressed: () {
-                          if (_currentIndex > 0) {
-                            _loadAndPlay(_currentIndex - 1);
-                          }
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          _isPlaying
-                              ? Icons.pause
-                              : Icons.play_arrow,
-                          color: Colors.white,
-                          size: 35,
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [BoxShadow(color: kPrimary.withOpacity(0.10), blurRadius: 16, offset: const Offset(0, 4))],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 180,
+                      width: 180,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [kPrimary.withOpacity(0.8), kMint.withOpacity(0.6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        onPressed: () => _isPlaying
-                            ? _player.pause()
-                            : _loadAndPlay(_currentIndex),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [BoxShadow(color: kPrimary.withOpacity(0.25), blurRadius: 20, offset: const Offset(0, 8))],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.skip_next,
-                            color: Colors.white),
-                        onPressed: () {
-                          if (_currentIndex < _playlist.length - 1) {
-                            _loadAndPlay(_currentIndex + 1);
-                          }
-                        },
+                      child: const Icon(Icons.music_note, size: 80, color: Colors.white),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    Text(track['title']!,
+                        style: TextStyle(
+                            color: textPrimary,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold)),
+
+                    const SizedBox(height: 4),
+                    Text(track['artist']!,
+                        style: TextStyle(color: textSub, fontSize: 14)),
+
+                    const SizedBox(height: 20),
+
+                    SliderTheme(
+                      data: SliderThemeData(
+                        activeTrackColor: kPrimary,
+                        inactiveTrackColor: kPrimary.withOpacity(0.2),
+                        thumbColor: kPrimary,
+                        overlayColor: kPrimary.withOpacity(0.15),
                       ),
-                    ],
-                  ),
-                ],
+                      child: Slider(
+                        value: _position.inSeconds.toDouble(),
+                        max: _duration.inSeconds.toDouble() == 0
+                            ? 1
+                            : _duration.inSeconds.toDouble(),
+                        onChanged: (v) =>
+                            _player.seek(Duration(seconds: v.toInt())),
+                      ),
+                    ),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_format(_position),
+                            style: TextStyle(color: textSub, fontSize: 12)),
+                        Text(_format(_duration),
+                            style: TextStyle(color: textSub, fontSize: 12)),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.skip_previous_rounded, color: textPrimary, size: 32),
+                          onPressed: () {
+                            if (_currentIndex > 0) {
+                              _loadAndPlay(_currentIndex - 1);
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(colors: [kPrimary, Color(0xFFB3B7FF)]),
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: kPrimary.withOpacity(0.4), blurRadius: 12, offset: const Offset(0, 4))],
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 35,
+                            ),
+                            onPressed: () => _isPlaying
+                                ? _player.pause()
+                                : _loadAndPlay(_currentIndex),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(Icons.skip_next_rounded, color: textPrimary, size: 32),
+                          onPressed: () {
+                            if (_currentIndex < _playlist.length - 1) {
+                              _loadAndPlay(_currentIndex + 1);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -561,7 +604,7 @@ class _VideoPlayerTabState extends State<VideoPlayerTab> {
                           icon: const Icon(Icons.save),
                           label: const Text('Save'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
+                            backgroundColor: kMint,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),

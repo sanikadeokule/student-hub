@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../config/app_theme.dart';
 
 class GlassCard extends StatelessWidget {
   final Widget child;
@@ -9,30 +10,29 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           decoration: BoxDecoration(
-            /// Main card background with higher opacity for visibility
-            color: color.withOpacity(0.55),
-            borderRadius: BorderRadius.circular(16),
-            /// Soft border for definition
+            color: isDark
+                ? color.withOpacity(0.25)
+                : color.withOpacity(0.65),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withOpacity(0.25),
+              color: Colors.white.withOpacity(isDark ? 0.12 : 0.30),
               width: 1.5,
             ),
-            /// Subtle shadow for depth
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
+                color: color.withOpacity(isDark ? 0.15 : 0.25),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-          /// Ensure child content (icon and text) is visible
           child: DefaultTextStyle(
             style: const TextStyle(
               color: Colors.white,

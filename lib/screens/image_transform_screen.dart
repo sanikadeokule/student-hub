@@ -1,6 +1,7 @@
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../config/app_theme.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 
@@ -314,7 +315,7 @@ class _ImageTransformScreenState extends State<ImageTransformScreen> {
                             label: Text(_saving ? 'Processing…' : 'Save'),
                             onPressed: _saving ? null : _saveImage,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF5C6BC0),
+                              backgroundColor: kAmber,
                               foregroundColor: Colors.white,
                               padding:
                                   const EdgeInsets.symmetric(vertical: 14),
@@ -469,13 +470,13 @@ class _ToggleChip extends StatelessWidget {
             const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF5C6BC0)
-              : const Color(0xFF5C6BC0).withValues(alpha: 0.12),
+              ? kAmber
+              : kAmber.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
-                ? const Color(0xFF5C6BC0)
-                : const Color(0xFF5C6BC0).withValues(alpha: 0.3),
+                ? kAmber
+                : kAmber.withValues(alpha: 0.3),
           ),
         ),
         child: Row(
@@ -483,7 +484,7 @@ class _ToggleChip extends StatelessWidget {
           children: [
             Icon(icon,
                 size: 14,
-                color: selected ? Colors.white : const Color(0xFF5C6BC0)),
+                color: selected ? Colors.white : kAmber),
             const SizedBox(width: 5),
             Text(label,
                 style: TextStyle(
@@ -491,7 +492,7 @@ class _ToggleChip extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     color: selected
                         ? Colors.white
-                        : const Color(0xFF5C6BC0))),
+                        : kAmber)),
           ],
         ),
       ),

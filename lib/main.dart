@@ -1,20 +1,25 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'config/app_theme.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ☁️ Initialize Firebase (Web-safe)
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.web,
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.web);
+
+  // Enable Firestore offline cache (works on both web + mobile in v5+).
+  // Tasks, notes, subjects and alarms will load from local cache when offline
+  // and queued writes sync automatically when connection is restored.
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
-  // Load theme preference
   final prefs = await SharedPreferences.getInstance();
   final isDarkMode = prefs.getBool('isDarkMode') ?? false;
 
@@ -51,28 +56,9 @@ class _StudentHubAppState extends State<StudentHubApp> {
       debugShowCheckedModeBanner: false,
       title: 'Student Hub',
 
-      // 🌗 Theme mode
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-
-      // 🌞 Light Theme
-      theme: ThemeData(
-        useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF5C6BC0),
-          brightness: Brightness.light,
-        ),
-      ),
-
-      // 🌙 Dark Theme
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF5C6BC0),
-          brightness: Brightness.dark,
-        ),
-      ),
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
 
       // 🚀 First screen
       home: SplashScreen(toggleTheme: toggleTheme, isDarkMode: _isDarkMode),

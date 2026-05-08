@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
+import '../config/app_theme.dart';
 import '../models/study_session_model.dart';
 import '../services/analytics_service.dart';
 
@@ -25,428 +26,313 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   String _formatDuration(int totalSeconds) {
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    }
-    return '${minutes}m';
+    return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
   }
 
   List<BarChartGroupData> _buildBarGroups(List<StudySessionModel> sessions) {
     final now = DateTime.now();
     final dayTotals = <String, double>{};
     final dayLabels = List.generate(7, (index) {
-      final day = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: 6 - index));
+      final day = DateTime(now.year, now.month, now.day).subtract(Duration(days: 6 - index));
       final label = DateFormat.E().format(day);
       dayTotals[label] = 0.0;
       return label;
     });
-
-    for (final session in sessions) {
-      final date = DateTime(
-        session.date.year,
-        session.date.month,
-        session.date.day,
-      );
-      final label = DateFormat.E().format(date);
+    for (final s in sessions) {
+      final label = DateFormat.E().format(DateTime(s.date.year, s.date.month, s.date.day));
       if (dayTotals.containsKey(label)) {
-        dayTotals[label] = dayTotals[label]! + session.duration.inMinutes;
+        dayTotals[label] = dayTotals[label]! + s.duration.inMinutes;
       }
     }
-
-    return dayLabels.asMap().entries.map((entry) {
-      final index = entry.key;
-      final label = entry.value;
+    return dayLabels.asMap().entries.map((e) {
       return BarChartGroupData(
-        x: index,
+        x: e.key,
         barRods: [
           BarChartRodData(
-            toY: dayTotals[label]!.toDouble(),
+            toY: dayTotals[e.value]!,
             width: 18,
-            borderRadius: BorderRadius.circular(6),
-            color: Colors.indigo.shade400,
+            borderRadius: BorderRadius.circular(8),
+            gradient: const LinearGradient(
+              colors: [kPrimary, kMint],
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+            ),
           ),
         ],
       );
     }).toList();
   }
 
-  Widget _buildSummaryCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    Color? color,
-  }) {
+  Widget _summaryCard({required String title, required String value,
+      required IconData icon, required Color color, bool isDark = false}) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.only(bottom: 14, right: 8),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color?.withOpacity(0.15) ?? Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.12)),
+          color: isDark ? kDarkCard : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withOpacity(0.2)),
+          boxShadow: [BoxShadow(color: color.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, color: color ?? Colors.blue, size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 12),
+          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white54 : Colors.grey[600])),
+          const SizedBox(height: 4),
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : const Color(0xFF2A2A3D))),
+        ]),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark ? kDarkCard : Colors.white;
+    final textSub = isDark ? Colors.white54 : Colors.grey[600];
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Study Analytics'),
-        backgroundColor: const Color(0xFF5C6BC0),
-      ),
+      appBar: AppBar(title: const Text('Analytics')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Insights from your study habits and tasks',
-                style: TextStyle(fontSize: 15, color: Colors.black87),
-              ),
-              const SizedBox(height: 18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Insights from your study habits',
+                style: TextStyle(fontSize: 14, color: textSub)),
+            const SizedBox(height: 16),
 
-              // Summary cards
-              Row(
-                children: [
-                  StreamBuilder<int>(
-                    stream: _analyticsService.getTodayStudyTimeSeconds(),
-                    builder: (context, snapshot) {
-                      final studySeconds = snapshot.data ?? 0;
-                      final label = studySeconds > 0
-                          ? _formatDuration(studySeconds)
-                          : 'No study time yet';
-                      return _buildSummaryCard(
-                        title: 'Today Study',
-                        value: label,
-                        icon: Icons.timer,
-                        color: Colors.orange,
-                      );
-                    },
-                  ),
-                  StreamBuilder<int>(
-                    stream: _analyticsService.getTasksCompletedTodayCount(),
-                    builder: (context, snapshot) {
-                      final completed = snapshot.data ?? 0;
-                      return _buildSummaryCard(
-                        title: 'Tasks Today',
-                        value: '$completed completed',
-                        icon: Icons.task_alt,
-                        color: Colors.green,
-                      );
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              FutureBuilder<int>(
-                future: _streakFuture,
-                builder: (context, snapshot) {
-                  final streak = snapshot.data ?? 0;
-                  final label = streak > 0 ? '🔥 $streak-day streak' : 'Start a streak';
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 20),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.whatshot, color: Colors.white),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Study Streak',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                label,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+            // ── Summary cards ────────────────────────────────────
+            Row(children: [
+              StreamBuilder<int>(
+                stream: _analyticsService.getTodayStudyTimeSeconds(),
+                builder: (_, snap) {
+                  final s = snap.data ?? 0;
+                  return _summaryCard(
+                    title: 'Today Study',
+                    value: s > 0 ? _formatDuration(s) : '—',
+                    icon: Icons.timer_rounded,
+                    color: kAmber,
+                    isDark: isDark,
                   );
                 },
               ),
-
-              // Bar chart
-              const Text(
-                'Last 7 days study time',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              StreamBuilder<int>(
+                stream: _analyticsService.getTasksCompletedTodayCount(),
+                builder: (_, snap) {
+                  return _summaryCard(
+                    title: 'Tasks Today',
+                    value: '${snap.data ?? 0} done',
+                    icon: Icons.task_alt_rounded,
+                    color: kMint,
+                    isDark: isDark,
+                  );
+                },
               ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 12,
+            ]),
+
+            // ── Streak card ──────────────────────────────────────
+            FutureBuilder<int>(
+              future: _streakFuture,
+              builder: (_, snap) {
+                final streak = snap.data ?? 0;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 24),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [kPrimary.withOpacity(0.25), kMint.withOpacity(0.15)]
+                          : [kPrimaryLight.withOpacity(0.6), kMintLight.withOpacity(0.5)],
                     ),
-                  ],
-                ),
-                child: StreamBuilder<List<StudySessionModel>>(
-                  stream: _analyticsService.getStudySessionsForLastDays(7),
-                  builder: (context, snapshot) {
-                    final sessions = snapshot.data ?? [];
-                    final groups = _buildBarGroups(sessions);
-
-                    if (sessions.isEmpty) {
-                      return SizedBox(
-                        height: 220,
-                        child: Center(
-                          child: Text(
-                            'No study sessions in the last 7 days 📭',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ),
-                      );
-                    }
-
-                    return SizedBox(
-                      height: 260,
-                      child: BarChart(
-                        BarChartData(
-                          alignment: BarChartAlignment.spaceAround,
-                          maxY: groups
-                                  .map((group) => group.barRods.first.toY)
-                                  .fold<double>(0, (a, b) => a > b ? a : b) +
-                              5,
-                          barGroups: groups,
-                          titlesData: FlTitlesData(
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 32,
-                                interval: 15,
-                                getTitlesWidget: (value, meta) {
-                                  final label = value.toInt();
-                                  return Text(
-                                    '$label m',
-                                    style: const TextStyle(fontSize: 10),
-                                  );
-                                },
-                              ),
-                            ),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                getTitlesWidget: (value, meta) {
-                                  final index = value.toInt();
-                                  final labels = groups
-                                      .asMap()
-                                      .map((i, g) => MapEntry(i, DateFormat.E().format(DateTime.now().subtract(Duration(days: 6 - i)))))
-                                      .values
-                                      .toList();
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 8.0),
-                                    child: Text(
-                                      labels[index],
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          gridData: FlGridData(show: true, drawVerticalLine: false),
-                          borderData: FlBorderData(show: false),
-                        ),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: kPrimary.withOpacity(0.2)),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                          color: kPrimary.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(14)),
+                      child: const Icon(Icons.local_fire_department_rounded, color: kPrimary, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Study Streak', style: TextStyle(fontSize: 13, color: textSub, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 4),
+                      Text(
+                        streak > 0 ? '🔥 $streak-day streak!' : 'Start a streak today',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF2A2A3D)),
                       ),
-                    );
-                  },
-                ),
+                    ]),
+                  ]),
+                );
+              },
+            ),
+
+            // ── Bar chart ────────────────────────────────────────
+            Text('Study time — last 7 days',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF2A2A3D))),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity, padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardBg, borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : kPrimary.withOpacity(0.1)),
+                boxShadow: [BoxShadow(color: kPrimary.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6))],
               ),
-
-              const SizedBox(height: 20),
-
-              // Pie chart
-              const Text(
-                'Task completion',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              child: StreamBuilder<List<StudySessionModel>>(
+                stream: _analyticsService.getStudySessionsForLastDays(7),
+                builder: (_, snap) {
+                  final sessions = snap.data ?? [];
+                  final groups = _buildBarGroups(sessions);
+                  if (sessions.isEmpty) {
+                    return SizedBox(height: 200, child: Center(
+                        child: Text('No study sessions yet 📭',
+                            style: TextStyle(color: textSub))));
+                  }
+                  return SizedBox(
+                    height: 240,
+                    child: BarChart(BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: groups.map((g) => g.barRods.first.toY).fold<double>(0, (a, b) => a > b ? a : b) + 5,
+                      barGroups: groups,
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(sideTitles: SideTitles(
+                          showTitles: true, reservedSize: 36, interval: 15,
+                          getTitlesWidget: (v, _) => Text('${v.toInt()}m',
+                              style: TextStyle(fontSize: 10, color: textSub)),
+                        )),
+                        bottomTitles: AxisTitles(sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (v, _) {
+                            final labels = groups.asMap().map((i, _) => MapEntry(i,
+                                DateFormat.E().format(DateTime.now().subtract(Duration(days: 6 - i))))).values.toList();
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(labels[v.toInt()],
+                                  style: TextStyle(fontSize: 12, color: textSub)));
+                          },
+                        )),
+                        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      ),
+                      gridData: FlGridData(show: true, drawVerticalLine: false,
+                          getDrawingHorizontalLine: (_) => FlLine(
+                              color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.12),
+                              strokeWidth: 1)),
+                      borderData: FlBorderData(show: false),
+                    )),
+                  );
+                },
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 12,
-                    ),
-                  ],
-                ),
-                child: StreamBuilder<int>(
-                  stream: _analyticsService.getTotalCompletedTasksCount(),
-                  builder: (context, completedSnapshot) {
-                    return StreamBuilder<int>(
-                      stream: _analyticsService.getPendingTasksCount(),
-                      builder: (context, pendingSnapshot) {
-                        final completed = completedSnapshot.data ?? 0;
-                        final pending = pendingSnapshot.data ?? 0;
-                        final total = completed + pending;
+            ),
 
-                        if (total == 0) {
-                          return SizedBox(
-                            height: 220,
-                            child: Center(
-                              child: Text(
-                                'No tasks found yet 📭',
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ),
-                          );
-                        }
+            const SizedBox(height: 24),
 
-                        return Column(
-                          children: [
-                            SizedBox(
-                              height: 220,
-                              child: PieChart(
-                                PieChartData(
-                                  sections: [
-                                    PieChartSectionData(
-                                      value: completed.toDouble(),
-                                      color: Colors.green.shade400,
-                                      title: '${((completed / total) * 100).round()}%',
-                                      radius: 60,
-                                      titleStyle: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    PieChartSectionData(
-                                      value: pending.toDouble(),
-                                      color: Colors.orange.shade400,
-                                      title: '${((pending / total) * 100).round()}%',
-                                      radius: 50,
-                                      titleStyle: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                  sectionsSpace: 4,
-                                  centerSpaceRadius: 32,
-                                ),
-                              ),
+            // ── Pie chart ────────────────────────────────────────
+            Text('Task completion',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : const Color(0xFF2A2A3D))),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16), width: double.infinity,
+              decoration: BoxDecoration(
+                color: cardBg, borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.07) : kMint.withOpacity(0.15)),
+                boxShadow: [BoxShadow(color: kMint.withOpacity(0.06), blurRadius: 16, offset: const Offset(0, 6))],
+              ),
+              child: StreamBuilder<int>(
+                stream: _analyticsService.getTotalCompletedTasksCount(),
+                builder: (_, completedSnap) => StreamBuilder<int>(
+                  stream: _analyticsService.getPendingTasksCount(),
+                  builder: (_, pendingSnap) {
+                    final completed = completedSnap.data ?? 0;
+                    final pending = pendingSnap.data ?? 0;
+                    final total = completed + pending;
+                    if (total == 0) {
+                      return SizedBox(height: 180, child: Center(
+                          child: Text('No tasks yet 📭', style: TextStyle(color: textSub))));
+                    }
+                    return Column(children: [
+                      SizedBox(
+                        height: 200,
+                        child: PieChart(PieChartData(
+                          sections: [
+                            PieChartSectionData(
+                              value: completed.toDouble(), color: kMint,
+                              title: '${((completed / total) * 100).round()}%',
+                              radius: 64,
+                              titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _buildLegendDot(Colors.green.shade400, 'Completed', completed),
-                                _buildLegendDot(Colors.orange.shade400, 'Pending', pending),
-                              ],
+                            PieChartSectionData(
+                              value: pending.toDouble(), color: kAmber,
+                              title: '${((pending / total) * 100).round()}%',
+                              radius: 54,
+                              titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                           ],
-                        );
-                      },
-                    );
+                          sectionsSpace: 4,
+                          centerSpaceRadius: 36,
+                        )),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                        _legendDot(kMint, 'Completed', completed, isDark),
+                        _legendDot(kAmber, 'Pending', pending, isDark),
+                      ]),
+                    ]);
                   },
                 ),
               ),
+            ),
 
-              const SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Great job! Keep the streak going 🔥',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Analytics will update automatically as you log study sessions and complete tasks.',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 24),
+
+            // ── Motivation banner ───────────────────────────────
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: kAmber.withOpacity(isDark ? 0.18 : 0.12),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: kAmber.withOpacity(0.3)),
               ),
-            ],
-          ),
+              child: Row(children: [
+                const Text('🌟', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Keep the streak going!',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : const Color(0xFF2A2A3D))),
+                  const SizedBox(height: 4),
+                  Text('Analytics update as you log sessions and complete tasks.',
+                      style: TextStyle(fontSize: 12, color: textSub)),
+                ])),
+              ]),
+            ),
+            const SizedBox(height: 24),
+          ]),
         ),
       ),
     );
   }
 
-  Widget _buildLegendDot(Color color, String label, int count) {
-    return Row(
-      children: [
-        Container(
-          height: 12,
-          width: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Text('$label ($count)'),
-      ],
-    );
+  Widget _legendDot(Color color, String label, int count, bool isDark) {
+    return Row(children: [
+      Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 8),
+      Text('$label ($count)',
+          style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : Colors.grey[700])),
+    ]);
   }
 }

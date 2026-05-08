@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_theme.dart';
 import '../models/subject_model.dart';
 import '../services/subject_service.dart';
 import '../services/task_service.dart';
@@ -15,121 +16,84 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
   final SubjectService _subjectService = SubjectService();
   final TaskService _taskService = TaskService();
 
-  final List<String> _colorOptions = [
-    '#5C6BC0',
-    '#E53935',
-    '#43A047',
-    '#FB8C00',
-    '#8E24AA',
-    '#00ACC1',
-    '#F4511E',
-    '#3949AB',
+  // Pastel hex colours that match the app palette
+  static const _colorOptions = [
+    '#8B8FF8', // kPrimary  - lavender
+    '#6ECFBF', // kMint     - mint
+    '#FF9AA2', // kCoral    - coral
+    '#FECF6A', // kAmber    - amber
+    '#B3B7FF', // kPrimaryLight
+    '#BEEde8', // kMintLight
+    '#FFD5D8', // kCoralLight
+    '#FFF0C2', // kAmberLight
   ];
 
   void _showSubjectDialog({SubjectModel? existing}) {
-    final nameController = TextEditingController(text: existing?.name ?? '');
-    final descController = TextEditingController(text: existing?.description ?? '');
-    String selectedColor = existing?.color ?? '#5C6BC0';
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final descCtrl = TextEditingController(text: existing?.description ?? '');
+    String selectedColor = existing?.color ?? '#8B8FF8';
     final isEditing = existing != null;
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDlg) => AlertDialog(
-          title: Text(isEditing ? 'Edit Subject' : 'Create New Subject'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Subject Name',
-                    hintText: 'e.g., Mathematics, Physics',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: descController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description (Optional)',
-                    hintText: 'Brief description of the subject',
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 16),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Choose Color:'),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _colorOptions.map((color) {
-                    return GestureDetector(
-                      onTap: () => setDlg(() => selectedColor = color),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Color(
-                              int.parse(color.replaceAll('#', ''), radix: 16) +
-                                  0xFF000000),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: selectedColor == color
-                                ? Colors.black
-                                : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: Text(isEditing ? 'Edit Subject' : 'New Subject'),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Subject Name', hintText: 'e.g., Mathematics')),
+            const SizedBox(height: 12),
+            TextField(controller: descCtrl, maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Description (optional)')),
+            const SizedBox(height: 16),
+            const Align(alignment: Alignment.centerLeft,
+                child: Text('Colour:', style: TextStyle(fontWeight: FontWeight.w600))),
+            const SizedBox(height: 10),
+            Wrap(spacing: 10, runSpacing: 10,
+              children: _colorOptions.map((hex) {
+                final col = Color(int.parse(hex.replaceAll('#', ''), radix: 16) + 0xFF000000);
+                final selected = selectedColor.toLowerCase() == hex.toLowerCase();
+                return GestureDetector(
+                  onTap: () => setDlg(() => selectedColor = hex),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: col,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selected ? const Color(0xFF2A2A3D) : Colors.transparent,
+                        width: 2.5,
                       ),
-                    );
-                  }).toList(),
-                ),
-              ],
+                      boxShadow: selected ? [BoxShadow(color: col.withOpacity(0.5), blurRadius: 8, spreadRadius: 1)] : [],
+                    ),
+                    child: selected ? const Icon(Icons.check_rounded, color: Colors.white, size: 18) : null,
+                  ),
+                );
+              }).toList(),
             ),
-          ),
+          ])),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
-                final name = nameController.text.trim();
+                final name = nameCtrl.text.trim();
                 if (name.isEmpty) return;
                 try {
                   if (isEditing) {
-                    await _subjectService.updateSubject(
-                      existing.id,
-                      name: name,
-                      description: descController.text.trim(),
-                      color: selectedColor,
-                    );
+                    await _subjectService.updateSubject(existing.id,
+                        name: name, description: descCtrl.text.trim(), color: selectedColor);
                   } else {
                     await _subjectService.createSubject(
-                      name: name,
-                      description: descController.text.trim(),
-                      color: selectedColor,
-                    );
+                        name: name, description: descCtrl.text.trim(), color: selectedColor);
                   }
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
+                  if (ctx.mounted) {
+                    Navigator.of(ctx).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text(isEditing
-                              ? 'Subject updated!'
-                              : 'Subject created!')),
-                    );
+                        SnackBar(content: Text(isEditing ? 'Subject updated!' : 'Subject created!')));
                   }
                 } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
-                  }
+                  if (ctx.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
                 }
               },
               child: Text(isEditing ? 'Save' : 'Create'),
@@ -141,208 +105,149 @@ class _SubjectListScreenState extends State<SubjectListScreen> {
   }
 
   Future<void> _deleteSubject(SubjectModel subject) async {
-    final confirmed = await showDialog<bool>(
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Subject?'),
-        content: Text(
-            'Delete "${subject.name}"? This will not delete its tasks or notes.'),
+        content: Text('Delete "${subject.name}"? Notes and tasks won\'t be deleted.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: kCoral, foregroundColor: Colors.white),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-    if (confirmed == true) {
-      try {
-        await _subjectService.deleteSubject(subject.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Subject deleted')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('Error: $e')));
-        }
-      }
+    if (ok == true) {
+      try { await _subjectService.deleteSubject(subject.id); }
+      catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'))); }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Subjects'),
-        elevation: 0,
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+      appBar: AppBar(title: const Text('Subjects')),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showSubjectDialog(),
+        child: const Icon(Icons.add_rounded),
       ),
       body: StreamBuilder<List<SubjectModel>>(
         stream: _subjectService.getSubjects(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+        builder: (_, snap) {
+          if (snap.hasError) return Center(child: Text('Error: ${snap.error}'));
+          if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+            return const Center(child: CircularProgressIndicator(color: kPrimary));
           }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final subjects = snapshot.data ?? [];
+          final subjects = snap.data ?? [];
 
           if (subjects.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.school,
-                      size: 80,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.5)),
-                  const SizedBox(height: 16),
-                  Text('No subjects yet',
-                      style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Create your first subject to get organized!',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.7)),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(color: kPrimaryLight.withOpacity(0.5), shape: BoxShape.circle),
+                child: const Icon(Icons.school_rounded, size: 52, color: kPrimary),
               ),
-            );
+              const SizedBox(height: 18),
+              const Text('No subjects yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('Create your first subject to get organised!',
+                  style: TextStyle(color: isDark ? Colors.white54 : Colors.grey[500]),
+                  textAlign: TextAlign.center),
+            ]));
           }
 
           return GridView.builder(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.1,
+              crossAxisCount: 2, crossAxisSpacing: 14, mainAxisSpacing: 14, childAspectRatio: 1.05,
             ),
             itemCount: subjects.length,
-            itemBuilder: (context, index) {
-              final subject = subjects[index];
-              return Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
+            itemBuilder: (_, i) {
+              final subject = subjects[i];
+              final subjectColor = subject.getColor();
+
+              return Material(
+                color: isDark ? kDarkCard : Colors.white,
+                borderRadius: BorderRadius.circular(20),
                 child: InkWell(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            SubjectDetailScreen(subject: subject)),
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: subject.getColor(),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.book,
-                                  color: Colors.white, size: 18),
-                            ),
-                            const Spacer(),
-                            // Edit button
-                            GestureDetector(
-                              onTap: () =>
-                                  _showSubjectDialog(existing: subject),
-                              child: const Icon(Icons.edit_outlined,
-                                  size: 18, color: Colors.grey),
-                            ),
-                            const SizedBox(width: 6),
-                            // Delete button
-                            GestureDetector(
-                              onTap: () => _deleteSubject(subject),
-                              child: const Icon(Icons.delete_outline,
-                                  size: 18, color: Colors.red),
-                            ),
-                          ],
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => SubjectDetailScreen(subject: subject))),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: subjectColor.withOpacity(isDark ? 0.3 : 0.2)),
+                      boxShadow: [BoxShadow(color: subjectColor.withOpacity(0.1),
+                          blurRadius: 12, offset: const Offset(0, 4))],
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: subjectColor.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Icon(Icons.book_rounded, color: subjectColor, size: 20),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          subject.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (subject.description.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            subject.description,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withOpacity(0.7)),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                         const Spacer(),
-                        // Pending task count
-                        StreamBuilder<int>(
-                          stream: _taskService.getPendingTasksCount(
-                              subjectId: subject.id),
-                          builder: (context, countSnap) {
-                            final count = countSnap.data ?? 0;
-                            return Text(
+                        GestureDetector(
+                          onTap: () => _showSubjectDialog(existing: subject),
+                          child: Icon(Icons.edit_rounded, size: 17,
+                              color: isDark ? Colors.white38 : Colors.grey[400]),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => _deleteSubject(subject),
+                          child: Icon(Icons.delete_outline_rounded, size: 17, color: kCoral.withOpacity(0.7)),
+                        ),
+                      ]),
+                      const SizedBox(height: 10),
+                      Text(subject.name,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14,
+                              color: isDark ? Colors.white : const Color(0xFF2A2A3D)),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      if (subject.description.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(subject.description,
+                            style: TextStyle(fontSize: 11,
+                                color: isDark ? Colors.white38 : Colors.grey[500]),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ],
+                      const Spacer(),
+                      StreamBuilder<int>(
+                        stream: _taskService.getPendingTasksCount(subjectId: subject.id),
+                        builder: (_, countSnap) {
+                          final count = countSnap.data ?? 0;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: count > 0
+                                  ? subjectColor.withOpacity(0.15)
+                                  : (isDark ? Colors.white.withOpacity(0.06) : Colors.grey.withOpacity(0.1)),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
                               '$count pending task${count == 1 ? '' : 's'}',
                               style: TextStyle(
-                                fontSize: 11,
-                                color: count > 0
-                                    ? const Color(0xFF5C6BC0)
-                                    : Colors.grey,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 10, fontWeight: FontWeight.w600,
+                                color: count > 0 ? subjectColor : (isDark ? Colors.white38 : Colors.grey[500]),
                               ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                            ),
+                          );
+                        },
+                      ),
+                    ]),
                   ),
                 ),
               );
             },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showSubjectDialog(),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        child: const Icon(Icons.add),
       ),
     );
   }

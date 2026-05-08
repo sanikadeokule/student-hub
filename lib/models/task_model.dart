@@ -82,14 +82,15 @@ class TaskModel {
     );
   }
 
+  // Colours match the unified pastel palette in app_theme.dart
   static int getPriorityColor(TaskPriority p) {
     switch (p) {
       case TaskPriority.high:
-        return 0xFFE53935;
+        return 0xFFFF9AA2; // kCoral
       case TaskPriority.medium:
-        return 0xFFFB8C00;
+        return 0xFFFECF6A; // kAmber
       case TaskPriority.low:
-        return 0xFF43A047;
+        return 0xFF6ECFBF; // kMint
     }
   }
 
