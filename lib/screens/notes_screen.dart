@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:intl/intl.dart';
+import '../config/app_theme.dart';
 import '../models/note_model.dart';
 import '../services/note_service.dart';
 import '../models/subject_model.dart';
@@ -24,102 +26,57 @@ class _NotesScreenState extends State<NotesScreen> {
   String? _selectedSubjectId;
   _NoteSort _sort = _NoteSort.newest;
 
+  // 4-colour pastel rotation (matches app palette)
+  static const _notePalette = [kPrimaryLight, kMintLight, kAmberLight, kCoralLight];
+  static const _noteAccents = [kPrimary,      kMint,      kAmber,      kCoral     ];
+
   Future<void> addNote() async {
     if (_controller.text.trim().isEmpty) return;
     try {
-      await _noteService.createNote(
-        text: _controller.text.trim(),
-        subjectId: _selectedSubjectId,
-      );
+      await _noteService.createNote(text: _controller.text.trim(), subjectId: _selectedSubjectId);
       _controller.clear();
       setState(() => _selectedSubjectId = null);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error adding note: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
   Future<void> _deleteNote(String id) async {
-    try {
-      await _noteService.deleteNote(id);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error deleting note: $e')));
-      }
-    }
+    try { await _noteService.deleteNote(id); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'))); }
   }
 
   Future<void> _showEditDialog(NoteModel note) async {
     final editController = TextEditingController(text: note.text);
     String? editSubjectId = note.subjectId;
-
     final subjects = await _subjectService.getSubjects().first;
-
     if (!mounted) return;
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
+        builder: (ctx, setDlg) => AlertDialog(
           title: const Text('Edit Note'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: editController,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText: 'Note text...',
-                    filled: true,
-                    fillColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
-                  value: editSubjectId,
-                  decoration: const InputDecoration(labelText: 'Subject'),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                        value: null, child: Text('No subject')),
-                    ...subjects.map((s) => DropdownMenuItem<String?>(
-                        value: s.id, child: Text(s.name))),
-                  ],
-                  onChanged: (v) => setDlgState(() => editSubjectId = v),
-                ),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: editController, maxLines: 4,
+                decoration: const InputDecoration(hintText: 'Note text...')),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String?>(
+              value: editSubjectId,
+              decoration: const InputDecoration(labelText: 'Subject'),
+              items: [
+                const DropdownMenuItem<String?>(value: null, child: Text('No subject')),
+                ...subjects.map((s) => DropdownMenuItem<String?>(value: s.id, child: Text(s.name))),
               ],
+              onChanged: (v) => setDlg(() => editSubjectId = v),
             ),
-          ),
+          ])),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5C6BC0),
-                  foregroundColor: Colors.white),
               onPressed: () async {
                 if (editController.text.trim().isEmpty) return;
-                try {
-                  await _noteService.updateNote(
-                    note.id,
-                    text: editController.text.trim(),
-                    subjectId: editSubjectId,
-                  );
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                } catch (e) {
-                  if (ctx.mounted) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(content: Text('Error updating note: $e')));
-                  }
-                }
+                await _noteService.updateNote(note.id, text: editController.text.trim(), subjectId: editSubjectId);
+                if (ctx.mounted) Navigator.of(ctx).pop();
               },
               child: const Text('Save'),
             ),
@@ -133,15 +90,10 @@ class _NotesScreenState extends State<NotesScreen> {
   List<NoteModel> _applySort(List<NoteModel> notes) {
     final sorted = List<NoteModel>.from(notes);
     switch (_sort) {
-      case _NoteSort.newest:
-        sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      case _NoteSort.oldest:
-        sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      case _NoteSort.az:
-        sorted.sort((a, b) =>
-            a.text.toLowerCase().compareTo(b.text.toLowerCase()));
+      case _NoteSort.newest: sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt)); break;
+      case _NoteSort.oldest: sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt)); break;
+      case _NoteSort.az:     sorted.sort((a, b) => a.text.toLowerCase().compareTo(b.text.toLowerCase())); break;
     }
-    // Pinned notes always float to top
     sorted.sort((a, b) {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
@@ -151,36 +103,72 @@ class _NotesScreenState extends State<NotesScreen> {
   }
 
   Future<void> _togglePin(NoteModel note) async {
-    try {
-      await _noteService.updateNote(note.id, isPinned: !note.isPinned);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
+    try { await _noteService.updateNote(note.id, isPinned: !note.isPinned); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'))); }
   }
 
   void _copyToClipboard(NoteModel note) {
     Clipboard.setData(ClipboardData(text: note.text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Note copied to clipboard')),
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
+  }
+
+  void _openNote(NoteModel note, Color accent, Color cardColor) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.7, minChildSize: 0.4, maxChildSize: 0.95,
+        builder: (_, scrollCtrl) => Container(
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border(top: BorderSide(color: accent, width: 3)),
+          ),
+          child: Column(children: [
+            Center(child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              width: 36, height: 4,
+              decoration: BoxDecoration(color: accent.withOpacity(0.4), borderRadius: BorderRadius.circular(2)),
+            )),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 4),
+              child: Row(children: [
+                if (note.isPinned) Icon(Icons.push_pin_rounded, size: 14, color: accent),
+                if (note.isPinned) const SizedBox(width: 6),
+                Expanded(child: Text(
+                  DateFormat('dd MMM yyyy · h:mm a').format(note.createdAt.toDate()),
+                  style: TextStyle(fontSize: 12, color: accent, fontWeight: FontWeight.w600),
+                )),
+                IconButton(icon: Icon(Icons.edit_outlined, color: accent, size: 20),
+                    onPressed: () { Navigator.pop(context); _showEditDialog(note); }),
+                IconButton(icon: Icon(Icons.copy_outlined, color: accent, size: 20),
+                    onPressed: () { _copyToClipboard(note); Navigator.pop(context); }),
+              ]),
+            ),
+            const Divider(height: 1),
+            Expanded(child: SingleChildScrollView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              child: Text(note.text, style: const TextStyle(fontSize: 16, height: 1.6)),
+            )),
+          ]),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: const Text('My Notes', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('My Notes'),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
         actions: [
           PopupMenuButton<_NoteSort>(
-            icon: const Icon(Icons.sort),
+            icon: const Icon(Icons.sort_rounded),
             onSelected: (val) => setState(() => _sort = val),
             itemBuilder: (_) => const [
               PopupMenuItem(value: _NoteSort.newest, child: Text('Newest first')),
@@ -190,198 +178,212 @@ class _NotesScreenState extends State<NotesScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) => setState(() => searchQuery = val.toLowerCase()),
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.search),
-                hintText: 'Search notes...',
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+      body: Column(children: [
+        // ── Search ───────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (val) => setState(() => searchQuery = val.toLowerCase()),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search_rounded, color: kPrimary),
+              hintText: 'Search notes...',
             ),
           ),
+        ),
+        const SizedBox(height: 10),
 
-          // Add note box
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Column(
-              children: [
-                StreamBuilder<List<SubjectModel>>(
-                  stream: _subjectService.getSubjects(),
-                  builder: (context, snapshot) {
-                    final subjects = snapshot.data ?? [];
-                    return DropdownButtonFormField<String?>(
-                      value: _selectedSubjectId,
-                      decoration: InputDecoration(
-                        labelText: 'Link to Subject (Optional)',
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String?>(
-                            value: null, child: Text('No subject')),
-                        ...subjects.map((s) => DropdownMenuItem<String?>(
-                            value: s.id, child: Text(s.name))),
-                      ],
-                      onChanged: (v) => setState(() => _selectedSubjectId = v),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        decoration: InputDecoration(
-                          hintText: 'Write a new note...',
-                          filled: true,
-                          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    FloatingActionButton(
-                      onPressed: addNote,
-                      backgroundColor: const Color(0xFF5C6BC0),
-                      child: const Icon(Icons.add),
-                    ),
+        // ── Add note input ───────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(children: [
+            StreamBuilder<List<SubjectModel>>(
+              stream: _subjectService.getSubjects(),
+              builder: (_, snap) {
+                final subjects = snap.data ?? [];
+                return DropdownButtonFormField<String?>(
+                  value: _selectedSubjectId,
+                  decoration: const InputDecoration(labelText: 'Link to subject (optional)'),
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('No subject')),
+                    ...subjects.map((s) => DropdownMenuItem<String?>(value: s.id, child: Text(s.name))),
                   ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Notes list
-          Expanded(
-            child: StreamBuilder<List<NoteModel>>(
-              stream: _noteService.getNotes(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final notes = snapshot.data ?? [];
-                final filtered = _applySort(notes
-                    .where((n) => n.text.toLowerCase().contains(searchQuery))
-                    .toList());
-
-                if (filtered.isEmpty) {
-                  return const Center(
-                    child: Text('No notes found ✍️', style: TextStyle(fontSize: 16)),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) {
-                    final note = filtered[i];
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          )
-                        ],
-                      ),
-                      child: ListTile(
-                        leading: note.isPinned
-                            ? const Icon(Icons.push_pin,
-                                color: Color(0xFF5C6BC0), size: 18)
-                            : null,
-                        title: Text(
-                          note.text,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w500),
-                        ),
-                        subtitle: note.subjectId != null
-                            ? FutureBuilder<SubjectModel?>(
-                                future: _subjectService
-                                    .getSubject(note.subjectId!),
-                                builder: (context, snap) {
-                                  if (snap.hasData && snap.data != null) {
-                                    return Text(
-                                      'Subject: ${snap.data!.name}',
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.grey),
-                                    );
-                                  }
-                                  return const SizedBox.shrink();
-                                },
-                              )
-                            : null,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                note.isPinned
-                                    ? Icons.push_pin
-                                    : Icons.push_pin_outlined,
-                                color: note.isPinned
-                                    ? const Color(0xFF5C6BC0)
-                                    : Colors.grey,
-                                size: 20,
-                              ),
-                              tooltip: note.isPinned ? 'Unpin' : 'Pin',
-                              onPressed: () => _togglePin(note),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.copy_outlined,
-                                  color: Colors.blueGrey, size: 20),
-                              tooltip: 'Copy to clipboard',
-                              onPressed: () => _copyToClipboard(note),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined,
-                                  color: Colors.blueGrey, size: 20),
-                              onPressed: () => _showEditDialog(note),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete,
-                                  color: Colors.red, size: 20),
-                              onPressed: () => _deleteNote(note.id),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                  onChanged: (v) => setState(() => _selectedSubjectId = v),
                 );
               },
             ),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  decoration: const InputDecoration(hintText: 'Write a new note...'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FloatingActionButton(
+                onPressed: addNote,
+                mini: true,
+                child: const Icon(Icons.add_rounded),
+              ),
+            ]),
+          ]),
+        ),
+        const SizedBox(height: 10),
+
+        // ── Notes list ──────────────────────────────────────────
+        Expanded(
+          child: StreamBuilder<List<NoteModel>>(
+            stream: _noteService.getNotes(),
+            builder: (_, snap) {
+              if (snap.hasError) return Center(child: Text('Error: ${snap.error}'));
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: kPrimary));
+              }
+              final notes = snap.data ?? [];
+              final filtered = _applySort(
+                  notes.where((n) => n.text.toLowerCase().contains(searchQuery)).toList());
+
+              if (filtered.isEmpty) {
+                return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: kPrimaryLight.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.sticky_note_2_rounded, size: 48, color: kPrimary),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('No notes yet ✍️', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                ]));
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                itemCount: filtered.length,
+                itemBuilder: (_, i) {
+                  final note = filtered[i];
+                  final idx = note.id.hashCode.abs() % _notePalette.length;
+                  final cardColor = isDark
+                      ? _noteAccents[idx].withOpacity(0.1)
+                      : _notePalette[idx];
+                  final accent = _noteAccents[idx];
+                  final textColor = isDark ? Colors.white.withOpacity(0.88) : const Color(0xFF2A2A3D);
+                  final subColor  = isDark ? Colors.white38 : Colors.grey[500]!;
+
+                  return GestureDetector(
+                    onTap: () => _openNote(note, accent,
+                        isDark ? kDarkCard : _notePalette[idx]),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: accent.withOpacity(0.25)),
+                        boxShadow: [
+                          BoxShadow(color: accent.withOpacity(0.08),
+                              blurRadius: 10, offset: const Offset(0, 3))
+                        ],
+                      ),
+                      child: IntrinsicHeight(
+                        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          // Left accent bar
+                          Container(
+                            width: 4,
+                            decoration: BoxDecoration(
+                              color: accent,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(18),
+                                bottomLeft: Radius.circular(18),
+                              ),
+                            ),
+                          ),
+                          Expanded(child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                if (note.isPinned) ...[
+                                  Icon(Icons.push_pin_rounded, size: 13, color: accent),
+                                  const SizedBox(width: 5),
+                                ],
+                                Expanded(child: Text(
+                                  note.text,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600,
+                                      color: textColor, height: 1.45),
+                                )),
+                              ]),
+                              const SizedBox(height: 10),
+                              Row(children: [
+                                if (note.subjectId != null)
+                                  FutureBuilder<SubjectModel?>(
+                                    future: _subjectService.getSubject(note.subjectId!),
+                                    builder: (_, s) {
+                                      if (s.data == null) return const SizedBox.shrink();
+                                      return Container(
+                                        margin: const EdgeInsets.only(right: 8),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                            color: accent.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(20)),
+                                        child: Text(s.data!.name,
+                                            style: TextStyle(fontSize: 10, color: accent,
+                                                fontWeight: FontWeight.w600)),
+                                      );
+                                    },
+                                  ),
+                                Text(
+                                  DateFormat('dd MMM · h:mm a').format(note.createdAt.toDate()),
+                                  style: TextStyle(fontSize: 11, color: subColor),
+                                ),
+                                const Spacer(),
+                                _NoteAction(icon: note.isPinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                                    color: note.isPinned ? accent : subColor,
+                                    tooltip: note.isPinned ? 'Unpin' : 'Pin',
+                                    onTap: () => _togglePin(note)),
+                                _NoteAction(icon: Icons.copy_outlined, color: subColor, tooltip: 'Copy',
+                                    onTap: () => _copyToClipboard(note)),
+                                _NoteAction(icon: Icons.edit_outlined, color: subColor, tooltip: 'Edit',
+                                    onTap: () => _showEditDialog(note)),
+                                _NoteAction(icon: Icons.delete_outline_rounded,
+                                    color: kCoral.withOpacity(0.7), tooltip: 'Delete',
+                                    onTap: () => _deleteNote(note.id)),
+                              ]),
+                            ]),
+                          )),
+                        ]),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
           ),
-        ],
+        ),
+      ]),
+    );
+  }
+}
+
+class _NoteAction extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _NoteAction({required this.icon, required this.color, required this.tooltip, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(padding: const EdgeInsets.all(6), child: Icon(icon, size: 17, color: color)),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/app_theme.dart';
 import '../models/subject_model.dart';
 import '../models/note_model.dart';
 import '../models/task_model.dart';
@@ -150,7 +151,7 @@ class _NotesTabState extends State<_NotesTab> {
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
 
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
               }
 
@@ -197,7 +198,7 @@ class _NotesTabState extends State<_NotesTab> {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
+                        icon: const Icon(Icons.delete, color: kCoral),
                         onPressed: () async {
                           try {
                             await _noteService.deleteNote(note.id);
@@ -236,7 +237,7 @@ class _TasksTab extends StatelessWidget {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -323,7 +324,7 @@ class _TasksTab extends StatelessWidget {
                   },
                 ),
                 trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: const Icon(Icons.delete, color: kCoral),
                   onPressed: () async {
                     try {
                       await TaskService().deleteTask(task.id);
@@ -359,7 +360,7 @@ class _VideosTab extends StatelessWidget {
           return Center(child: Text('Error: ${snapshot.error}'));
         }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -426,7 +427,7 @@ class _VideosTab extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: const Icon(Icons.delete, color: kCoral),
                   onPressed: () async {
                     try {
                       await VideoService().deleteVideo(video.id);
